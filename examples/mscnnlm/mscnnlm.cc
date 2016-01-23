@@ -315,6 +315,7 @@ void ConcatLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
   data_.SetValue(0);
   SetIndex(srclayers);
 
+  int max = Binomial(max_word_len_, kernel_);
   //LOG(ERROR) << "start concatenation";
   for (int w = 0; w < window_; w++) {
     //LOG(ERROR) << "word_index_[" << w << "]: " << word_index_[w];
@@ -322,7 +323,6 @@ void ConcatLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
     Combinations(word_index_[w], kernel_);
     //LOG(ERROR) << "set concat_index_ ok!";
     int b = Binomial(word_index_[w], kernel_);
-    int max = Binomial(max_word_len_, kernel_);
     for (int r = 0; r < b; r++)
       for (int c = 0; c < kernel_; c++) {
         /*memcpy(dst_ptr + ((w * max + r) * kernel_ + c) * word_dim_,
@@ -342,11 +342,12 @@ void ConcatLayer::ComputeGradient(int flag, const vector<Layer*>& srclayers) {
   auto gsrc = Tensor2(srclayers[0]->mutable_grad(this));
   auto emlayer = dynamic_cast<EmbeddingLayer*>(srclayers[0]);
   window_ = emlayer->window();      // #words in a patient
+  gsrc = 0;
 
+  int max = Binomial(max_word_len_, kernel_);
   for (int w = 0; w < window_; w++) {
     Combinations(word_index_[w], kernel_);
     int b = Binomial(word_index_[w], kernel_);
-    int max = Binomial(max_word_len_, kernel_);
     for (int r = 0; r < b; r++)
       for (int c = 0; c < kernel_; c++)
         for (int i = 0; i < word_dim_; i++)
@@ -467,9 +468,10 @@ void PoolingOverTime::ComputeGradient(int flag,
     const vector<Layer*>& srclayers) {
   //LOG(ERROR) << "ComputeGradient @ PoolingOverTime";
   auto grad = Tensor3(&grad_);
-  srclayers[0]->mutable_grad(this)->SetValue(0);
+  //srclayers[0]->mutable_grad(this)->SetValue(0);
   auto gsrc = Tensor2(srclayers[0]->mutable_grad(this));
   auto datalayer = dynamic_cast<DataLayer*>(srclayers[1]);
+  gsrc = 0;
   window_ = datalayer->window();
   for (int w = 0; w < window_; w++)
     for (int c = 0; c < vdim_; c++)
@@ -503,7 +505,7 @@ void WordPoolingLayer::ComputeFeature(int flag,
   auto data = Tensor2(&data_);
   auto src = Tensor4(srclayers[0]->mutable_data(this));
   for (int i = 0; i < vdim_; i++) {
-    data[0][i] = src[0][0][i][0];
+    data[0][i] = src[0][i][0][0];
     index_[i] = 0;
   }
   for (int i = 0; i < vdim_; i++)
@@ -520,6 +522,7 @@ void WordPoolingLayer::ComputeGradient(int flag,
   auto grad = Tensor2(&grad_);
   //srclayers[0]->mutable_grad(this)->SetValue(0);
   auto gsrc = Tensor4(srclayers[0]->mutable_grad(this));
+  gsrc = 0;
   for (int i = 0; i < vdim_; i++)
     gsrc[0][i][index_[i]][0] = grad[0][i];
 }
