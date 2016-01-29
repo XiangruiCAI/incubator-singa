@@ -80,8 +80,12 @@ void SetInst(int k, const WordCharRecord& ch, Blob<float>* to, int max_wlen) {
   dptr[1] = static_cast<float>(ch.word_index());
   dptr[2] = static_cast<float>(ch.word_length());
   dptr[3] = static_cast<float>(ch.delta_time());
-  for (int i=0; i<ch.word_length(); i++)
+  //LOG(ERROR) << "word length: " << dptr[2];
+  //LOG(ERROR) << "delta time: " << dptr[3];
+  for (int i=0; i<ch.word_length(); i++) {
     dptr[4+i] = static_cast<float>(ch.char_index(i));
+    //LOG(ERROR) << "char index " << dptr[4+i];
+  }
 }
 
 void ShiftInst(int from, int to,  Blob<float>* data) {
@@ -118,12 +122,17 @@ void DataLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
     }
 
     if (i == 0) {
-      if (ch.label() == 18)
+      /*if (static_cast<int>(ch.label()) == 18)
         aux_data_.at(0) = 0;
-      else if (ch.label() == 189)
+      else if (static_cast<int>(ch.label()) == 189)
         aux_data_.at(0) = 6;
+      aux_data_.at(0) = static_cast<int>(ch.label());
+        */
+      if (static_cast<int>(ch.label()) == 189)
+        aux_data_.at(0) = 3;
       else
-        aux_data_.at(0) = ch.label() - 180;
+        aux_data_.at(0) = static_cast<int>(ch.label()) - 183;
+      //LOG(ERROR) << "label: " << aux_data_.at(0);
     }
     SetInst(i, ch, &data_, max_word_len_);
   }
@@ -161,19 +170,33 @@ void EmbeddingLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
   window_ = datalayer->window(); // <-- # of words in patient
   auto chars = RTensor2(&data_);
   auto embed = RTensor2(embed_->mutable_data());
+  chars = 0;
 
   const float* idxptr = datalayer->data(this).cpu_data();
-  int i = 0;
+  //int i = 0;
   int shift = datalayer->data(this).shape()[1];
+  //LOG(ERROR) << "max_word_len_: " << max_word_len_;
   for (int k=0; k < window_; k++) {
     int wlen = static_cast<int>(idxptr[k*shift+2]);
-    for(int c=0; c<wlen; c++)
-    {
+    //LOG(ERROR) << "wlen: " << wlen;
+    for(int c=0; c<wlen; c++) {
       int char_idx = static_cast<int>(idxptr[k*shift+4+c]);  // "4": start position of char index
+      //LOG(ERROR) << "char index: " << char_idx;
       CHECK_GE(char_idx, 0);
       CHECK_LT(char_idx, vocab_size_);
       Copy(chars[k * max_word_len_ + c], embed[char_idx]);
+      //for (int i = 0; i < word_dim_; i++)
+      //  chars[k * max_word_len_ + c][i] = embed[char_idx][i];
     }
+    /*for (int i = 0; i < word_dim_; i++) {
+      int max = 0;
+      for (int c = 0; c < max_word_len_; c++) {
+        if (chars[k*max_word_len_+c][i] > chars[max][i]) {
+          max = k*max_word_len_+c;
+        }
+      }
+      LOG(ERROR) << "max " << i << " @ embedding: " << max << " " << chars[max][i];
+    }*/
   }
 }
 
@@ -184,7 +207,7 @@ void EmbeddingLayer::ComputeGradient(int flag,
   auto datalayer = dynamic_cast<DataLayer*>(srclayers[0]);
   gembed = 0;
   const float* idxptr = datalayer->data(this).cpu_data();
-  int i = 0;
+  //int i = 0;
   int shift = datalayer->data(this).shape()[1];
   for (int k = 0; k < window_; k++) {
     int wlen = static_cast<int>(idxptr[k*shift+2]);
@@ -365,7 +388,7 @@ void ConcatLayer::ComputeGradient(int flag, const vector<Layer*>& srclayers) {
 }
 
 /*********PoolingOverTime Layer*********/
-/*void PoolingOverTime::SetIndex(const vector<Layer*>& srclayers) {
+void PoolingOverTime::SetIndex(const vector<Layer*>& srclayers) {
   // pay attention to the index of data layer
   auto datalayer = dynamic_cast<DataLayer*>(srclayers[1]);
   window_ = datalayer->window();    // #words in a patient
@@ -375,7 +398,7 @@ void ConcatLayer::ComputeGradient(int flag, const vector<Layer*>& srclayers) {
     int wlen = static_cast<int>(idxptr[i * shift + 2]);
     word_index_[i] = wlen;
   }
-}*/
+}
 
 int PoolingOverTime::Binomial(int n, int k) {
   if (k < 0 || k > n)
@@ -391,8 +414,8 @@ int PoolingOverTime::Binomial(int n, int k) {
 }
 
 PoolingOverTime::~PoolingOverTime() {
-  //if (word_index_ != nullptr)
-  //  delete[] word_index_;
+  if (word_index_ != nullptr)
+    delete[] word_index_;
   if (max_index_ != nullptr) {
     for (int i = 0; i < max_num_word_; i++)
       delete[] max_index_[i];
@@ -406,6 +429,8 @@ void PoolingOverTime::Setup(const LayerProto& conf,
   CHECK_EQ(srclayers.size(), 2);
   MSCNNLayer::Setup(conf, srclayers);
 
+  kernel_ = conf.GetExtension(pot_conf).kernel();
+  //LOG(ERROR) << "kernel_: " << kernel_;
   max_num_word_ = srclayers[1]->data(this).shape()[0];
   max_word_len_ = srclayers[1]->data(this).shape()[1] - 4;
   //LOG(ERROR) << "max_word_len_: " << max_word_len_;
@@ -424,8 +449,7 @@ void PoolingOverTime::Setup(const LayerProto& conf,
   // will append time from data layer
   data_.Reshape(vector<int>{1, max_num_word_, vdim_ + 1});
   grad_.ReshapeLike(data_);
-  //word_index_ = new int[max_num_word_];
-  //SetIndex(srclayers);
+  word_index_ = new int[max_num_word_];
   // indicate the index of the maximum element
   max_index_ = new int*[max_num_word_];
   for (int i = 0; i < max_num_word_; i++)
@@ -439,15 +463,19 @@ void PoolingOverTime::ComputeFeature(int flag,
   auto src = Tensor2(srclayers[0]->mutable_data(this));
   auto datalayer = dynamic_cast<DataLayer*>(srclayers[1]);
   window_ = datalayer->window();    // #words in a patient
+  //auto concatlayer = dynamic_cast<ConcatLayer*>(srclayers[2]);
+  //int kernel = concatlayer->kernel();
+  SetIndex(srclayers);
   //int max = Binomial(max_word_len_, kernel_);
   for (int w = 0; w < window_; w++) {
     for (int c = 0; c < vdim_; c++) {
       data[0][w][c] = src[w * max_row_][c];
       max_index_[w][c] = w * max_row_;
     }
-    //int b = Binomial(word_index_[w], kernel_);
+    int b = Binomial(word_index_[w], kernel_);
+    //LOG(ERROR) << "b: " << b;
     for (int c = 0; c < vdim_; c++)
-      for (int r = 1; r < max_row_; r++)
+      for (int r = 1; r < b; r++)
         if (src[w * max_row_ + r][c] > data[0][w][c]) {
           data[0][w][c] = src[w * max_row_ + r][c];
           max_index_[w][c] = w * max_row_ + r;

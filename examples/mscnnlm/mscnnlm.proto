@@ -44,11 +44,16 @@ message ConcatProto {
   optional int32 kernel = 1;
 }
 
+message PoolingOverTimeProto {
+  optional int32 kernel = 1;
+}
+
 extend singa.LayerProto {
   optional EmbeddingProto embedding_conf = 1001;
   optional LossProto loss_conf = 1002;
   optional DataProto data_conf = 1003;
   optional ConcatProto concat_conf = 1004;
+  optional PoolingOverTimeProto pot_conf = 1005;
 }
 
 message WordCharRecord {

@@ -40,6 +40,6 @@ create:
 mscnnlm:
 	protoc --proto_path=../../src/proto --proto_path=. --cpp_out=. mscnnlm.proto
 	protoc --proto_path=../../src/proto --proto_path=. --python_out=../../tool/python/pb2 mscnnlm.proto
-	$(CXX) main.cc mscnnlm.cc mscnnlm.pb.cc $(MSHADOW_FLAGS) -msse3 -std=c++11 -lsinga -lglog -lprotobuf -lopenblas -I../../include -I../../include/singa/proto \
+	$(CXX) main.cc mscnnlm.cc mscnnlm.pb.cc $(MSHADOW_FLAGS) -g -msse3 -std=c++11 -lsinga -lglog -lprotobuf -lopenblas -I../../include -I../../include/singa/proto \
 		-L../../.libs/ -L/usr/local  -Wl,-unresolved-symbols=ignore-in-shared-libs -Wl,-rpath=../../.libs/\
 		-o mscnnlm.bin

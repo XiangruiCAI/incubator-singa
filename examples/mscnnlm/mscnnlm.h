@@ -125,14 +125,15 @@ class ConcatLayer : public MSCNNLayer {
   int Binomial(int n, int k);
   void Combinations(int n, int k);
   void SetIndex(const vector<Layer*>& srclayers);
+  //inline int kernel() { return kernel_; }
  private:
   int max_word_len_;
   int max_num_word_;
   int word_dim_;
-  int kernel_;
   int *word_index_;       // len of each word
   //int **char_index_;      // character index in each word
   int **concat_index_;    // all k subsets of n elementes
+  int kernel_;
 };
 
 class PoolingOverTime : public MSCNNLayer {
@@ -149,8 +150,9 @@ class PoolingOverTime : public MSCNNLayer {
   int max_num_word_;
   int max_word_len_;
   int max_row_;
-  //int *word_index_;
+  int *word_index_;
   int **max_index_;
+  int kernel_;
 };
 
 class WordPoolingLayer: public MSCNNLayer {
