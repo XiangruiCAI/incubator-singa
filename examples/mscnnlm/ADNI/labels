@@ -1,0 +1,6 @@
+label, mmscore, description
+0, 30, no
+1, 26-29, questionable
+2, 21-25, mild
+3, 11-20, moderate
+4, 0-10, severe dementia
