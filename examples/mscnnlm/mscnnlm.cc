@@ -136,7 +136,6 @@ void DataLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
     }
     SetInst(i, ch, &data_, max_word_len_);
   }
-  //LOG(ERROR) << "aux_data_.at(0): " << aux_data_.at(0);
 }
 
 
@@ -188,9 +187,12 @@ void EmbeddingLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
       //for (int i = 0; i < word_dim_; i++)
       //  chars[k * max_word_len_ + c][i] = embed[char_idx][i];
     }
+    // show max @ embedding
     /*for (int i = 0; i < word_dim_; i++) {
-      int max = 0;
-      for (int c = 0; c < max_word_len_; c++) {
+      int max = k*max_word_len_;
+      for (int c = 0; c < wlen; c++) {
+        if (k*max_word_len_+c == 138)
+          LOG(ERROR) << "138 @ embedding: " << chars[k*max_word_len_+c][i];
         if (chars[k*max_word_len_+c][i] > chars[max][i]) {
           max = k*max_word_len_+c;
         }
@@ -202,12 +204,12 @@ void EmbeddingLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
 
 void EmbeddingLayer::ComputeGradient(int flag,
     const vector<Layer*>& srclayers) {
+  //LOG(ERROR) << "ComputeGradient @ embedding---";
   auto grad = RTensor2(&grad_);
   auto gembed = RTensor2(embed_->mutable_grad());
   auto datalayer = dynamic_cast<DataLayer*>(srclayers[0]);
   gembed = 0;
   const float* idxptr = datalayer->data(this).cpu_data();
-  //int i = 0;
   int shift = datalayer->data(this).shape()[1];
   for (int k = 0; k < window_; k++) {
     int wlen = static_cast<int>(idxptr[k*shift+2]);
@@ -215,8 +217,10 @@ void EmbeddingLayer::ComputeGradient(int flag,
     {
       int char_idx = static_cast<int>(idxptr[k*shift+4+c]);  // "4": start position of char index
       //Copy(gembed[char_idx], grad[i++]);
-      for (int t = 0; t < word_dim_; t++)
+      for (int t = 0; t < word_dim_; t++) {
         gembed[char_idx][t] += grad[k * max_word_len_ + c][t];
+        //LOG(ERROR) << k*max_word_len_+c << " " << t << ": " << grad[k * max_word_len_ + c][t];
+      }
     }
   }
 }
@@ -333,7 +337,33 @@ void ConcatLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
   //LOG(ERROR) << "CompFeature @ Concat";
   auto emlayer = dynamic_cast<EmbeddingLayer*>(srclayers[0]);
   window_ = emlayer->window();      // #words in a patient
-  auto src_ptr = emlayer->data(this).cpu_data();
+  auto data = Tensor2(&data_);
+  auto src = Tensor2(srclayers[0]->mutable_data(this));
+  data = 0;
+  SetIndex(srclayers);
+
+  int max = Binomial(max_word_len_, kernel_);
+  for (int w = 0; w < window_; w++) {
+    Combinations(word_index_[w], kernel_);
+    int b = Binomial(word_index_[w], kernel_);
+    for (int r = 0; r < b; r++) {
+      for (int i = 0; i < kernel_ * word_dim_; i++) {
+        data[w * max + r][i] = src[w * max_word_len_ + concat_index_[r][i / word_dim_]][i % word_dim_];
+      }
+    }
+    /*int t = w * max;
+    for (int i = 0; i < kernel_ * word_dim_; i++) {
+      for (int r = 0; r < b; r++) {
+        if (data[w * max + r][i] > data[t][i]) {
+          t = w*max+r;
+        }
+      }
+      LOG(ERROR) << "max @ concat: " << t << data[t][i];
+    }*/
+  }
+
+
+  /*auto src_ptr = emlayer->data(this).cpu_data();
   float* dst_ptr = data_.mutable_cpu_data();
   data_.SetValue(0);
   SetIndex(srclayers);
@@ -346,22 +376,36 @@ void ConcatLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
     Combinations(word_index_[w], kernel_);
     //LOG(ERROR) << "set concat_index_ ok!";
     int b = Binomial(word_index_[w], kernel_);
+    LOG(ERROR) << "b: " << b;
     for (int r = 0; r < b; r++)
       for (int c = 0; c < kernel_; c++) {
-        /*memcpy(dst_ptr + ((w * max + r) * kernel_ + c) * word_dim_,
-         src_ptr + char_index_[w][concat_index_[r][c]] * word_dim_, word_dim_);*/
         memcpy(dst_ptr + ((w * max + r) * kernel_ + c) * word_dim_,
         src_ptr + (w * max_word_len_ + concat_index_[r][c]) * word_dim_, word_dim_);
+        LOG(ERROR) << "r, " << r << "c" << c << " @ concat: " << concat_index_[r][c];
+        for (int i = 0; i < word_dim_; i++)
+          LOG(ERROR) << i << " " << *(src_ptr + (w * max_word_len_ + concat_index_[r][c]) * word_dim_ + i);
+        for (int i = 0; i < word_dim_; i++)
+          LOG(ERROR) << i << " " << *(dst_ptr + ((w * max + r) * kernel_ + c) * word_dim_ + i);
       }
-  }
+    // show max
+    for (int i = 0; i < kernel_*word_dim_; i++) {
+      LOG(ERROR) << "0, " << i << " @ concat: " << *(dst_ptr+i);
+      int m = w * max_word_len_;
+      for (int c = 0; c < b; c++) {
+        if (*(dst_ptr+(w*max+c)*kernel_*word_dim_+i) > 
+            *(dst_ptr+m*kernel_*word_dim_+i)) {
+          m = w*max_word_len_+c;
+        }
+      }
+      LOG(ERROR) << "max " << i << " @ concat: " << m << " " << *(dst_ptr+m*kernel_*word_dim_+i);
+    }
+  }*/
   //LOG(ERROR) << "end concatenation";
 }
 
 void ConcatLayer::ComputeGradient(int flag, const vector<Layer*>& srclayers) {
   //LOG(ERROR) << "ComputeGradient @ Concat";
   auto grad = Tensor2(&grad_);
-  // initialize gsrc, is it correct?
-  // srclayers[0]->mutable_grad(this)->SetValue(0);
   auto gsrc = Tensor2(srclayers[0]->mutable_grad(this));
   auto emlayer = dynamic_cast<EmbeddingLayer*>(srclayers[0]);
   window_ = emlayer->window();      // #words in a patient
@@ -369,22 +413,17 @@ void ConcatLayer::ComputeGradient(int flag, const vector<Layer*>& srclayers) {
 
   int max = Binomial(max_word_len_, kernel_);
   for (int w = 0; w < window_; w++) {
+    //LOG(ERROR) << "w: " << w << "----------";
     Combinations(word_index_[w], kernel_);
     int b = Binomial(word_index_[w], kernel_);
     for (int r = 0; r < b; r++)
       for (int c = 0; c < kernel_; c++)
-        for (int i = 0; i < word_dim_; i++)
+        for (int i = 0; i < word_dim_; i++) {
           gsrc[w * max_word_len_ + concat_index_[r][c]][i]
             += grad[w * max + r][c * word_dim_ + i];
+          //LOG(ERROR) << w*max+r << " " << c*word_dim_+i << ": " << grad[w * max + r][c * word_dim_ + i];
+        }
   }
-  // use avg
-  /*for (int w = 0; w < window_; w++) {
-    int b = Binomial(word_index_[w], kernel_);
-    for (int r = 0; r < word_index_[w]; r++)
-      for (int i = 0; i < word_dim_; i++)
-        // each vector will be used n-1 times in concatenation
-        gsrc[w * max_word_len_ + r][i] /= (b * kernel_ / word_index_[w]);
-  }*/
 }
 
 /*********PoolingOverTime Layer*********/
@@ -475,13 +514,18 @@ void PoolingOverTime::ComputeFeature(int flag,
     int b = Binomial(word_index_[w], kernel_);
     //LOG(ERROR) << "b: " << b;
     for (int c = 0; c < vdim_; c++)
-      for (int r = 1; r < b; r++)
+      for (int r = 1; r < b; r++) {
+        /*if (w * max_row_ + r == 138)
+          LOG(ERROR) << "138, " << c << "@PoolingOverTime: " << src[w*max_row_+r][c];*/
         if (src[w * max_row_ + r][c] > data[0][w][c]) {
           data[0][w][c] = src[w * max_row_ + r][c];
           max_index_[w][c] = w * max_row_ + r;
         }
-    //for (int c = 0; c < vdim_; c++)
-    //  LOG(ERROR) << "c" << c << ": " << max_index_[w][c];
+      }
+    /*for (int c = 0; c < vdim_; c++) {
+      LOG(ERROR) << "c" << c << ": " << max_index_[w][c] << " " << src[max_index_[w][c]][c];
+      LOG(ERROR) << "139, " << c << "@PoolingOverTime: " << src[139][c];
+    }*/
   }
   // append time from data layer
   const float* idxptr = datalayer->data(this).cpu_data();
@@ -501,9 +545,13 @@ void PoolingOverTime::ComputeGradient(int flag,
   auto datalayer = dynamic_cast<DataLayer*>(srclayers[1]);
   gsrc = 0;
   window_ = datalayer->window();
-  for (int w = 0; w < window_; w++)
-    for (int c = 0; c < vdim_; c++)
+  for (int w = 0; w < window_; w++) {
+    //LOG(ERROR) << "w: " << w << "---------";
+    for (int c = 0; c < vdim_; c++) {
       gsrc[max_index_[w][c]][c] = grad[0][w][c];
+      //LOG(ERROR) << "grad @ PoolingOverTime (" << max_index_[w][c] << " " << c << "): " << gsrc[max_index_[w][c]][c];
+    }
+  }
 }
 
 
@@ -516,7 +564,7 @@ WordPoolingLayer::~WordPoolingLayer() {
 void WordPoolingLayer::Setup(const LayerProto& conf,
   const vector<Layer*>& srclayers) {
   //LOG(ERROR) << "Setup @ WordPoolingLayer";
-  CHECK_EQ(srclayers.size(), 1);
+  CHECK_EQ(srclayers.size(), 2);
   MSCNNLayer::Setup(conf, srclayers);
   const auto& src = srclayers[0]->data(this);
   int dim = src.shape().size();
@@ -530,18 +578,24 @@ void WordPoolingLayer::Setup(const LayerProto& conf,
 void WordPoolingLayer::ComputeFeature(int flag,
   const vector<Layer*>& srclayers) {
   //LOG(ERROR) << "ComputeFeature @ WordPoolingLayer";
+  auto datalayer = dynamic_cast<DataLayer*>(srclayers[1]);
+  window_ = datalayer->window(); // <-- # of words in patient
   auto data = Tensor2(&data_);
   auto src = Tensor4(srclayers[0]->mutable_data(this));
   for (int i = 0; i < vdim_; i++) {
     data[0][i] = src[0][i][0][0];
     index_[i] = 0;
   }
+  //LOG(ERROR) << "batchsize_: " << batchsize_;
   for (int i = 0; i < vdim_; i++)
-    for (int j = 1; j < batchsize_; j++)
+    for (int j = 1; j < window_; j++)
       if (data[0][i] < src[0][i][j][0]) {
         data[0][i] = src[0][i][j][0];
         index_[i] = j;
       }
+  /*for (int i = 0; i < vdim_; i++) {
+    LOG(ERROR) << "max @ WordPoolingLayer: " << index_[i] << " " << src[0][i][index_[i]][0];
+  }*/
 }
 
 void WordPoolingLayer::ComputeGradient(int flag,
@@ -551,8 +605,10 @@ void WordPoolingLayer::ComputeGradient(int flag,
   //srclayers[0]->mutable_grad(this)->SetValue(0);
   auto gsrc = Tensor4(srclayers[0]->mutable_grad(this));
   gsrc = 0;
-  for (int i = 0; i < vdim_; i++)
+  for (int i = 0; i < vdim_; i++) {
     gsrc[0][i][index_[i]][0] = grad[0][i];
+    //LOG(ERROR) << "grad from WordPoolingLayer to convnet (" << i << " " << index_[i] << "): " << gsrc[0][i][index_[i]][0]; 
+  }
 }
 
 
