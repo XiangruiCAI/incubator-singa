@@ -62,7 +62,7 @@ void DataLayer::Setup(const LayerProto& conf, const vector<Layer*>& srclayers) {
   //LOG(ERROR) << "Setup @ Data";
   MSCNNLayer::Setup(conf, srclayers);
   string key;
-  max_window_ = conf.GetExtension(data_conf).max_window();
+  //max_window_ = conf.GetExtension(data_conf).max_window();
   max_word_len_ = conf.GetExtension(data_conf).max_word_len(); // max num chars in a word
   max_num_word_ = conf.GetExtension(data_conf).max_num_word();
   // row should be max_num_word_;
@@ -117,7 +117,8 @@ void DataLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
     }
     ch.ParseFromString(value);
     if (ch.word_index() == -1) {
-      window_ = i;
+      window_ = i;      // the number of words in this sample
+      //LOG(ERROR) << "window_: " << window_;
       break;
     }
 
@@ -191,8 +192,8 @@ void EmbeddingLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
     /*for (int i = 0; i < word_dim_; i++) {
       int max = k*max_word_len_;
       for (int c = 0; c < wlen; c++) {
-        if (k*max_word_len_+c == 138)
-          LOG(ERROR) << "138 @ embedding: " << chars[k*max_word_len_+c][i];
+        //if (k*max_word_len_+c == 138)
+        //  LOG(ERROR) << "138 @ embedding: " << chars[k*max_word_len_+c][i];
         if (chars[k*max_word_len_+c][i] > chars[max][i]) {
           max = k*max_word_len_+c;
         }
@@ -200,6 +201,9 @@ void EmbeddingLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
       LOG(ERROR) << "max " << i << " @ embedding: " << max << " " << chars[max][i];
     }*/
   }
+  // show embedding vector
+  //for (int j = 0; j < word_dim_; j++)
+  //  LOG(ERROR) <<  "542, " << j << " " << embed[542][j];
 }
 
 void EmbeddingLayer::ComputeGradient(int flag,
@@ -217,10 +221,15 @@ void EmbeddingLayer::ComputeGradient(int flag,
     {
       int char_idx = static_cast<int>(idxptr[k*shift+4+c]);  // "4": start position of char index
       //Copy(gembed[char_idx], grad[i++]);
+      //LOG(ERROR) << "char_idx: " << char_idx;
       for (int t = 0; t < word_dim_; t++) {
         gembed[char_idx][t] += grad[k * max_word_len_ + c][t];
         //LOG(ERROR) << k*max_word_len_+c << " " << t << ": " << grad[k * max_word_len_ + c][t];
+        //LOG(ERROR) << char_idx << " " << t << ": " << gembed[char_idx][t];
       }
+      //if (char_idx = 542)
+      //  for (int t = 0; t < word_dim_; t++)
+      //    LOG(ERROR) << "grad @ 542: " << gembed[542][t];
     }
   }
 }
@@ -346,6 +355,7 @@ void ConcatLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
   for (int w = 0; w < window_; w++) {
     Combinations(word_index_[w], kernel_);
     int b = Binomial(word_index_[w], kernel_);
+    //LOG(ERROR) << "b: " << b << "----------";
     for (int r = 0; r < b; r++) {
       for (int i = 0; i < kernel_ * word_dim_; i++) {
         data[w * max + r][i] = src[w * max_word_len_ + concat_index_[r][i / word_dim_]][i % word_dim_];
@@ -358,7 +368,7 @@ void ConcatLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
           t = w*max+r;
         }
       }
-      LOG(ERROR) << "max @ concat: " << t << data[t][i];
+      LOG(ERROR) << "max @ concat: " << t << " " << data[t][i];
     }*/
   }
 
@@ -392,7 +402,7 @@ void ConcatLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
       LOG(ERROR) << "0, " << i << " @ concat: " << *(dst_ptr+i);
       int m = w * max_word_len_;
       for (int c = 0; c < b; c++) {
-        if (*(dst_ptr+(w*max+c)*kernel_*word_dim_+i) > 
+        if (*(dst_ptr+(w*max+c)*kernel_*word_dim_+i) >
             *(dst_ptr+m*kernel_*word_dim_+i)) {
           m = w*max_word_len_+c;
         }
@@ -413,8 +423,8 @@ void ConcatLayer::ComputeGradient(int flag, const vector<Layer*>& srclayers) {
 
   int max = Binomial(max_word_len_, kernel_);
   for (int w = 0; w < window_; w++) {
-    //LOG(ERROR) << "w: " << w << "----------";
     Combinations(word_index_[w], kernel_);
+    //LOG(ERROR) << "w: " << w << "----------";
     int b = Binomial(word_index_[w], kernel_);
     for (int r = 0; r < b; r++)
       for (int c = 0; c < kernel_; c++)
@@ -524,7 +534,7 @@ void PoolingOverTime::ComputeFeature(int flag,
       }
     /*for (int c = 0; c < vdim_; c++) {
       LOG(ERROR) << "c" << c << ": " << max_index_[w][c] << " " << src[max_index_[w][c]][c];
-      LOG(ERROR) << "139, " << c << "@PoolingOverTime: " << src[139][c];
+      //LOG(ERROR) << "139, " << c << "@PoolingOverTime: " << src[139][c];
     }*/
   }
   // append time from data layer
@@ -607,7 +617,7 @@ void WordPoolingLayer::ComputeGradient(int flag,
   gsrc = 0;
   for (int i = 0; i < vdim_; i++) {
     gsrc[0][i][index_[i]][0] = grad[0][i];
-    //LOG(ERROR) << "grad from WordPoolingLayer to convnet (" << i << " " << index_[i] << "): " << gsrc[0][i][index_[i]][0]; 
+    //LOG(ERROR) << "grad from WordPoolingLayer to convnet (" << i << " " << index_[i] << "): " << gsrc[0][i][index_[i]][0];
   }
 }
 

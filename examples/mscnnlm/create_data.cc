@@ -76,7 +76,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "singa/proto/common.pb.h"
 #include "./mscnnlm.pb.h"
 
-#define MAX_STRING 100
+#define MAX_STRING 150
 #define BUFFER_LEN 32
 #define NL_STRING  "</s>"
 
@@ -97,7 +97,7 @@ int vocab_size;
 int *vocab_hash;
 int vocab_hash_size;
 int word_max_len; // max num of chars in a word
-int sentence_max_len; // max num of words in a sentence 
+int sentence_max_len; // max num of words in a sentence
 int debug_mode;
 int old_classes;
 int *class_start;
@@ -173,7 +173,7 @@ char readChar(char *ch, FILE *fin) {
     if ((c == 'N') || (c == 't') || (c == 'c') ||
         (c == ' ') || (c == '\t') || (c == '\n')) {
 
-      if ((c == 'N') || (c == 't') || (c == 'c')) { 
+      if ((c == 'N') || (c == 't') || (c == 'c')) {
         flag = c;
       }
 
@@ -274,6 +274,8 @@ int learnVocabFromEmrFile() {
 
   while (1) {
     chflag = readChar(ch, fin);  // chflag: N, c, t
+    //printf("ch: %s\t", ch);
+    //printf("chflag: %c\n", chflag);
     if (chflag == 'c' && chflag != wflag) {
       wcntsum++;
       wcnt++; // word count +1
@@ -414,13 +416,22 @@ int create_data(const char *input_file, const char *output) {
     chflag = readChar(chstr, fin);  // chflag: N, t, c
     if (feof(fin)) break;
 
-    i = searchVocab(chstr);
+    //printf("chflag: %c\n", chflag);
+    //printf("chstr: %s\n", chstr);
+
+    i = atoi(chstr);
+    //printf("i: %d\n", i);
+    //break;
+    //i = searchVocab(chstr);
     if (i == -1) {
       if (debug_mode) printf("unknown char [%s] detected!", chstr);
     }
     else {
       if (chflag == 'N') {
         label = atoi(chstr);  // store label (stage) of a patient
+        //if (strcmp(chstr, "185")==0) continue;
+        //if (strcmp(chstr, "181")==0) continue;
+        //if (strcmp(chstr, "18")==0) continue;
       }
       else if (chflag == 'c') {
         charlist.push_back(i);  // store chars in a word
@@ -468,73 +479,6 @@ int create_data(const char *input_file, const char *output) {
   delete store;
   return 0;
 }
-
-/*  CASE1
-int create_data_case1(const char *input_file, const char *output) {
-  auto* store = singa::io::OpenStore("kvfile", output, singa::io::kCreate);
-  WordRecord wordRecord;
-  CharRecord* charRecord;
-
-  FILE *fin;
-  int a, i;
-  fin = fopen(input_file, "rb");
-
-  int chcnt = 0;
-  char key[BUFFER_LEN];
-  char chflag, wflag = '0';
-  char chstr[MAX_STRING];
-  string value;
-
-  int wcnt = 0;
-  int wlen = 0;
-  char wordstr[MAX_STRING];
-  int delta = 0;
-
-  while (1) {
-
-    chflag = readChar(chstr, fin);  // chflag: N, t, c
-    if (feof(fin)) break;
-
-    i = searchVocab(chstr);
-    if (i == -1) {
-      if (debug_mode) printf("unknown char [%s] detected!", chstr);
-    } else {
-      if (chflag == 'c' && chflag != wflag) {
-        wordRecord.set_word_index(wcnt);
-      }
-      wflag = chflag;
-
-      if (chflag == 'c') {
-        charRecord = wordRecord.add_char_record();
-        charRecord->set_char_flag(&chflag);
-        charRecord->set_char_index(i);
-        int class_idx = vocab[i].class_index;
-        charRecord->set_class_index(class_idx);
-        charRecord->set_class_start(class_start[class_idx]);
-        charRecord->set_class_end(class_end[class_idx]);
-        chcnt++;
-        printf("c%s, cindex=%d\n", chstr, i);
-      }
-      else if (chflag == 't' || chflag == '0') {
-        printf("---windex=%d, wlen=%d, delta=%d\n\n", wcnt, chcnt-wlen, delta);
-        wordRecord.set_word_length(chcnt-wlen);
-        wlen = chcnt;
-        wordRecord.set_delta_time(delta);  // set delta time from the previous event
-        delta = atoi(chstr);
-        int length = snprintf(key, BUFFER_LEN, "%05d", wcnt++);
-        wordRecord.SerializeToString(&value);
-        store->Write(string(key, length), value);
-        wordRecord.Clear();
-      }
-    }
-  }
-
-  fclose(fin);
-  store->Flush();
-  delete store;
-  return 0;
-}
-*/
 
 int argPos(char *str, int argc, char **argv) {
   int a;
@@ -654,7 +598,7 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  init_class();
+  //init_class();
 
   create_data(train_file, "train_data.bin");
   if (valid_mode) create_data(valid_file, "valid_data.bin");
