@@ -1,0 +1,20 @@
+{"directed":1,
+"nodes":[
+ {"id":"0#data@0", "label":"0#data@0 -- shape: 1 3000 7014 ", "color":"black", "shape":"box"}
+,{"id":"0#conv_ch@0", "label":"0#conv_ch@0 -- shape: 1 512 3000 1 ", "color":"black", "shape":"box"}
+,{"id":"0#pool1@0", "label":"0#pool1@0 -- shape: 1 512 100 1 ", "color":"black", "shape":"box"}
+,{"id":"0#conv_wd@0", "label":"0#conv_wd@0 -- shape: 1 256 99 1 ", "color":"black", "shape":"box"}
+,{"id":"0#pool2@0", "label":"0#pool2@0 -- shape: 1 256 1 1 ", "color":"black", "shape":"box"}
+,{"id":"0#innerproduct@0", "label":"0#innerproduct@0 -- shape: 1 4 ", "color":"black", "shape":"box"}
+,{"id":"0#softmax@0", "label":"0#softmax@0 -- shape: 1 4 ", "color":"black", "shape":"box"}
+]
+,
+"links":[
+ {"source":0, "target":1, "label": ""}
+,{"source":0, "target":6, "label": ""}
+,{"source":1, "target":2, "label": ""}
+,{"source":2, "target":3, "label": ""}
+,{"source":3, "target":4, "label": ""}
+,{"source":4, "target":5, "label": ""}
+,{"source":5, "target":6, "label": ""}
+]}
