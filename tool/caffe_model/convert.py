@@ -53,10 +53,11 @@ def readProtoFile(filepath, parser_object):
     return parser_object
 
 
-def net2script(net_file):
+def net2script(net_file, input_sample_shape):
     net = readProtoNetFile(net_file)
     layer_conf = ''
     layer.engine = 'singacpp'
+    flatten_id = 0
     if len(net.layer):
         layer_conf = net.layer
     elif len(net.layers):
@@ -65,13 +66,8 @@ def net2script(net_file):
         raise Exception('Invalid proto file.')
 
     net = ffnet.FeedForwardNet()
-    print "#layer_conf: ", len(layer_conf)
     for i in range(len(layer_conf)):
-        # ignore data/Convolution/InnerProduct layer_confs
-        if (layer_conf[i].type == 'Data' or layer_conf[i].type == 5) \
-                or (layer_conf[i].type == 'Convolution' or layer_conf[i].type == 4) \
-                or (layer_conf[i].type == 'InnerProduct' or layer_conf[i].type == 14):
-            # if layer_conf[i].type == 'Data' or layer_conf[i].type == 5:
+        if layer_conf[i].type == 'Data' or layer_conf[i].type == 5:
             continue
         elif layer_conf[i].type == 'SoftmaxWithLoss' or layer_conf[
                 i].type == 21:
@@ -84,15 +80,15 @@ def net2script(net_file):
             strConf = layer_conf[i].SerializeToString()
             conf = model_pb2.LayerConf()
             conf.ParseFromString(strConf)
-            # print conf
-            l = layer.Layer(conf.name, conf)
-            # Problem: it will have a check for input tensor in pooling layer.
-            l.setup([])
-            net.add(l)
+            lyr = layer.Layer(conf.name, conf)
+            if len(net.layers) == 0:
+                lyr.setup(input_sample_shape)
+            if layer_conf[i].type == 'InnerProduct' or layer_conf[i].type == 14:
+                net.add(layer.Flatten('flat' + str(flatten_id)))
+            net.add(lyr)
 
-    for i in range(len(net.layers)):
-        print net.layers[i].name
-        print net.layers[i].conf.name
+    #for i in range(len(net.layers)):
+    #    print net.layers[i].name, '\t',  net.layers[i].get_output_sample_shape()
 
 
 def main():
@@ -100,16 +96,14 @@ def main():
         description='Caffe prototxt to SINGA model parameter converter.\
                     Note that only basic functions are implemented. You are welcomed to contribute to this file.')
     parser.add_argument(
-        'net_prototxt', help='The prototxt file for net in Caffe format')
-    #parser.add_argument('solver_prototxt', help='The prototxt file for solver in Caffe format')
-    #parser.add_argument('save_model_name', help='The name of the output model prefix')
+        'net_prototxt', help='Path to the prototxt file for net in Caffe format')
+    parser.add_argument(
+        'input_sample_shape',
+        help='The shape(in tuple) of input sample, example: 3 32 32',
+        nargs='*')
     args = parser.parse_args()
 
-    if len(sys.argv) == 2:
-        print 'proto file: ', sys.argv[1]
-        net2script(sys.argv[1])
-    else:
-        print 'Few arguments!'
+    net2script(sys.argv[1], tuple(map(int, sys.argv[2:])))
 
 
 if __name__ == '__main__':

@@ -97,8 +97,9 @@ class Layer(object):
             elif conf.type == 'Pooling' or conf.type == 17:
                 _check_engine(engine, ['cudnn', 'singacpp'])
                 self.layer = _create_layer(engine, 'Pooling')
-            elif conf.type == 'Relu' or conf.type == 18:
+            elif conf.type == 'ReLU' or conf.type == 18:
                 _check_engine(engine, ['cudnn', 'singacpp', 'singacuda', 'singacl'])
+                mode = 'relu'
                 self.conf.type = (engine + '_' + mode).lower()
                 self.layer = _create_layer(engine, mode)
             elif conf.type == 'LRN' or conf.type == 15:
