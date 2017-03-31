@@ -55,9 +55,8 @@ void Pooling::Setup(const Shape& in_sample, const LayerConf& conf) {
 
   pool_ = pool_conf.pool();
   CHECK(pool_ == PoolingConf_PoolMethod_AVE ||
-        pool_ == PoolingConf_PoolMethod_MAX ||
-        pool_ == PoolingConf_PoolMethod_STOCHASTIC)
-      << "Padding implemented only for average and max pooling.";
+        pool_ == PoolingConf_PoolMethod_MAX) 
+      << "Layer implemented only for average and max pooling.";
 
   CHECK_EQ(in_sample.size(), 3u);
   channels_ = in_sample.at(0);

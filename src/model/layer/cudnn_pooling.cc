@@ -61,10 +61,14 @@ void CudnnPooling::InitCudnn(const Tensor &input) {
     pool_method = CUDNN_POOLING_MAX;
   else if (pool_ == PoolingConf_PoolMethod_AVE)
     pool_method = CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING;
+  else if (pool_ == PoolingConf_PoolMethod_AVE_PAD)
+    pool_method = CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING;
+  else if (pool_ == PoolingConf_PoolMethod_MAX_DET)
+    pool_method = CUDNN_POOLING_MAX_DETERMINISTIC;
   else
     LOG(FATAL) << "Not implemented!";
 
-#if CUDNN_MAJOR == 5
+#if CUDNN_MAJOR >= 5
   CUDNN_CHECK(cudnnSetPooling2dDescriptor(pool_desc_, pool_method, nan_prop_,
                                           kernel_h_, kernel_w_, pad_h_, pad_w_,
                                           stride_h_, stride_w_));

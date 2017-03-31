@@ -659,7 +659,8 @@ message PoolingConf {
   enum PoolMethod {
     MAX = 0;
     AVE = 1;
-    STOCHASTIC = 2;
+    AVE_PAD = 2;    // CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING
+    MAX_DET = 3;    // CUDNN_POOLING_MAX_DETERMINISTIC
   }
   optional PoolMethod pool = 1 [default = MAX]; // The pooling method
   // Pad, kernel size, and stride are all given as a single value for equal
